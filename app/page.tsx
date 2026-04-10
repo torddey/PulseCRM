@@ -1,103 +1,383 @@
-import Image from "next/image";
+/**
+ * Main CRM Dashboard Page
+ * 
+ * This is the heart of the Proactive AI Relationship Manager
+ * Features:
+ * 1. Client Health Dashboard (Green/Yellow/Red status)
+ * 2. Smart Follow-Up Engine with automated reminders
+ * 3. Complaint Tracker with zero chaos
+ * 4. AI Assistant with smart suggestions
+ * 5. Interaction Memory - complete communication history
+ */
 
-export default function Home() {
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { AlertCircle, CheckCircle2, Clock, AlertTriangle, TrendingUp, Users, MessageSquare, Zap } from 'lucide-react'
+
+export default function Dashboard() {
+  const [clients, setClients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState({
+    totalClients: 0,
+    healthyClients: 0,
+    atRiskClients: 0,
+    pendingFollowUps: 0,
+    openComplaints: 0,
+  })
+
+  // Fetch dashboard data on component mount
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+      // In a real app, this would fetch from your API
+      // For now, we'll show the structure
+      setStats({
+        totalClients: 0,
+        healthyClients: 0,
+        atRiskClients: 0,
+        pendingFollowUps: 0,
+        openComplaints: 0,
+      })
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-slate-900 mb-2">
+          🚀 Proactive AI Relationship Manager
+        </h1>
+        <p className="text-lg text-slate-600">
+          Never lose a client silently again. AI-powered client engagement & relationship management.
+        </p>
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        {/* Total Clients */}
+        <Card className="border-l-4 border-l-blue-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600">Total Clients</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-slate-900">{stats.totalClients}</div>
+            <p className="text-xs text-slate-500 mt-1">Active relationships</p>
+          </CardContent>
+        </Card>
+
+        {/* Healthy Clients (Green) */}
+        <Card className="border-l-4 border-l-green-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              Healthy
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-green-600">{stats.healthyClients}</div>
+            <p className="text-xs text-slate-500 mt-1">Happy & engaged</p>
+          </CardContent>
+        </Card>
+
+        {/* At Risk Clients (Red) */}
+        <Card className="border-l-4 border-l-red-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              At Risk
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-red-600">{stats.atRiskClients}</div>
+            <p className="text-xs text-slate-500 mt-1">Need urgent action</p>
+          </CardContent>
+        </Card>
+
+        {/* Pending Follow-Ups */}
+        <Card className="border-l-4 border-l-amber-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-500" />
+              Follow-Ups
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-amber-600">{stats.pendingFollowUps}</div>
+            <p className="text-xs text-slate-500 mt-1">Pending actions</p>
+          </CardContent>
+        </Card>
+
+        {/* Open Complaints */}
+        <Card className="border-l-4 border-l-orange-500">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500" />
+              Complaints
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-orange-600">{stats.openComplaints}</div>
+            <p className="text-xs text-slate-500 mt-1">Unresolved issues</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto">
+          <TabsTrigger value="overview">📊 Overview</TabsTrigger>
+          <TabsTrigger value="followups">🔁 Follow-Ups</TabsTrigger>
+          <TabsTrigger value="complaints">📂 Complaints</TabsTrigger>
+          <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
+          <TabsTrigger value="interactions">📞 Interactions</TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Client Health Dashboard */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Client Health Dashboard
+                </CardTitle>
+                <CardDescription>
+                  Real-time status of all your clients - Green (Happy), Yellow (Inactive), Red (At Risk)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {/* Green - Healthy Clients */}
+                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                      <div>
+                        <p className="font-semibold text-slate-900">Healthy Clients</p>
+                        <p className="text-sm text-slate-600">Engaged and satisfied</p>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-green-600">{stats.healthyClients}</div>
+                  </div>
+
+                  {/* Yellow - Inactive Clients */}
+                  <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
+                      <div>
+                        <p className="font-semibold text-slate-900">Inactive Clients</p>
+                        <p className="text-sm text-slate-600">Need attention soon</p>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-yellow-600">0</div>
+                  </div>
+
+                  {/* Red - At Risk Clients */}
+                  <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                      <div>
+                        <p className="font-semibold text-slate-900">At Risk Clients</p>
+                        <p className="text-sm text-slate-600">Urgent action required</p>
+                      </div>
+                    </div>
+                    <div className="text-2xl font-bold text-red-600">{stats.atRiskClients}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full justify-start" variant="outline">
+                  <Users className="w-4 h-4 mr-2" />
+                  Add New Client
+                </Button>
+                <Button className="w-full justify-start" variant="outline">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Log Interaction
+                </Button>
+                <Button className="w-full justify-start" variant="outline">
+                  <Clock className="w-4 h-4 mr-2" />
+                  Schedule Follow-Up
+                </Button>
+                <Button className="w-full justify-start" variant="outline">
+                  <AlertTriangle className="w-4 h-4 mr-2" />
+                  Report Complaint
+                </Button>
+                <Button className="w-full justify-start" variant="outline">
+                  <Zap className="w-4 h-4 mr-2" />
+                  View AI Suggestions
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Follow-Ups Tab */}
+        <TabsContent value="followups">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Smart Follow-Up Engine
+              </CardTitle>
+              <CardDescription>
+                Automatically reminds staff to check on clients. Sends WhatsApp/SMS follow-ups automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600">No pending follow-ups at the moment</p>
+                <Button className="mt-4">Schedule New Follow-Up</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Complaints Tab */}
+        <TabsContent value="complaints">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Complaint Tracker (Zero Chaos)
+              </CardTitle>
+              <CardDescription>
+                Logs every issue, assigns status (Pending/Resolved/Urgent), sends reminders until resolved.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <AlertTriangle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600">No open complaints</p>
+                <Button className="mt-4">Report New Complaint</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* AI Insights Tab */}
+        <TabsContent value="ai-insights">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                AI Assistant (Your Secret Weapon)
+              </CardTitle>
+              <CardDescription>
+                Suggests what to say, when to follow up, which clients are at risk.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <Zap className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600">No AI insights available yet</p>
+                <p className="text-sm text-slate-500 mt-2">Add clients and interactions to get AI-powered suggestions</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Interactions Tab */}
+        <TabsContent value="interactions">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Interaction Memory
+              </CardTitle>
+              <CardDescription>
+                Complete history of all client communications - calls, messages, complaints, meetings.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600">No interactions recorded yet</p>
+                <Button className="mt-4">Log New Interaction</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Features Overview */}
+      <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">🔁 Smart Follow-Up</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              Automatically reminds staff to check on clients. Sends WhatsApp/SMS follow-ups.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">📂 Complaint Tracker</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              Logs every issue, tracks status, sends reminders until resolved.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">🧠 AI Assistant</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              Suggests what to say, when to follow up, which clients are at risk.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">📊 Health Dashboard</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              Green (happy), Yellow (inactive), Red (at risk) - never lose a client silently.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">📞 Interaction Memory</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-slate-600">
+              Complete history of calls, messages, complaints - no more "what did they say?"
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     </div>
-  );
+  )
 }
