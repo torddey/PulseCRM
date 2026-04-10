@@ -1,313 +1,369 @@
-# 🚀 Proactive AI Relationship Manager
+# 🚀 Proactive AI Relationship Manager CRM
 
-**Never lose a client silently again.** AI-powered CRM system that solves all your client management problems.
+**Never lose a client silently again.** AI-powered client engagement & relationship management system with WhatsApp integration and Google OAuth authentication.
 
-## 🎯 What This Solves
+## ✨ Features
 
-### Problems Identified:
-- ❌ Clients feel ignored after purchase
-- ❌ Follow-ups are inconsistent
-- ❌ Complaints are not tracked properly
-- ❌ Client service officer is overwhelmed manually
+### 🔐 Authentication
+- **Google OAuth Sign-In** - Secure authentication via Google
+- **Session Management** - JWT + Database-backed sessions
+- **Protected Routes** - Middleware-based route protection
+- **User Profiles** - User data stored in PostgreSQL
 
-### Solutions Provided:
+### 📊 Dashboard
+- **Client Health Dashboard** - Real-time status (Green/Yellow/Red)
+- **Metrics Overview** - Total clients, healthy, at-risk, follow-ups, complaints
+- **Quick Actions** - Add client, log interaction, schedule follow-up, report complaint
+- **AI Insights** - Smart suggestions for client engagement
 
-#### 1. 🔁 Smart Follow-Up Engine
-- Automatically reminds staff: "Check on Client A today"
-- Sends WhatsApp/SMS follow-ups automatically
-- Ensures consistent, timely engagement
-- Never miss a follow-up again
+### 💬 WhatsApp Integration
+- **Automated Messages** - Send WhatsApp messages to clients
+- **Message Templates** - Pre-built templates for common scenarios
+- **Delivery Tracking** - Track message delivery status
+- **Two-Way Communication** - Receive and respond to messages
 
-#### 2. 📂 Complaint Tracker (Zero Chaos)
-- Logs every issue
-- Assigns status: Pending / Resolved / Urgent
-- Sends reminders until resolved
-- Nothing falls through the cracks
+### 🔁 Smart Follow-Up Engine
+- **Automatic Reminders** - Reminds staff to check on clients
+- **Scheduled Follow-Ups** - Plan follow-ups in advance
+- **WhatsApp/SMS Delivery** - Automated message delivery
+- **Status Tracking** - Track follow-up completion
 
-#### 3. 🧠 AI Assistant (Your Secret Weapon)
-- Suggests what to say
-- When to follow up
-- Which clients are at risk
-- Predicts churn before it happens
+### 📂 Complaint Tracker
+- **Issue Logging** - Log every client complaint
+- **Status Tracking** - Pending, In Progress, Resolved, Urgent
+- **Reminder System** - Sends reminders until resolved
+- **Resolution Notes** - Document how issues were resolved
 
-#### 4. 📊 Client Health Dashboard
-- **Green** → Happy, engaged clients
-- **Yellow** → Inactive, needs attention
-- **Red** → At risk of churn, urgent action
-- Never lose a client silently again
+### 🧠 AI Assistant
+- **Smart Suggestions** - AI suggests what to say to clients
+- **Risk Detection** - Identifies clients at risk of churn
+- **Engagement Opportunities** - Suggests when to reach out
+- **Sentiment Analysis** - Analyzes interaction tone
 
-#### 5. 📞 Interaction Memory
-- Stores: Calls, Messages, Complaints, Meetings
-- Complete communication history
-- No more: "Wait… what did this client say again?"
-- Sentiment analysis on every interaction
+### 📞 Interaction Memory
+- **Complete History** - All calls, emails, SMS, WhatsApp, meetings
+- **Sentiment Analysis** - Positive, neutral, or negative
+- **Key Points** - Extracts important information from interactions
+- **Suggested Actions** - AI recommends next steps
 
-## 🏗️ Architecture
+## 🛠️ Tech Stack
 
-### Database Schema
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **Authentication**: NextAuth.js v5 with Google OAuth
+- **Database**: PostgreSQL with Prisma ORM
+- **UI Components**: shadcn/ui
+- **Styling**: Tailwind CSS
+- **API Integration**: WhatsApp Business API
 
-The system uses PostgreSQL with the following core entities:
-
-**Client Management:**
-- `Client` - Core client information with health status
-- `ClientMetric` - Tracks engagement and churn risk metrics
-
-**Communication:**
-- `Interaction` - Complete history of all communications
-- `FollowUp` - Scheduled follow-ups with automation
-- `Complaint` - Issue tracking with resolution workflow
-
-**AI & Automation:**
-- `AIInsight` - AI-generated suggestions and alerts
-- `AutomationRule` - Rules for automated actions
-- `TeamMember` - Staff management
-
-### API Endpoints
-
-#### Clients
-- `GET /api/clients` - Fetch all clients with filters
-- `POST /api/clients` - Create new client
-
-#### Follow-Ups
-- `GET /api/followups` - Fetch pending follow-ups
-- `POST /api/followups` - Schedule new follow-up
-
-#### Complaints
-- `GET /api/complaints` - Fetch complaints with filters
-- `POST /api/complaints` - Report new complaint
-
-#### Interactions
-- `GET /api/interactions` - Fetch interaction history
-- `POST /api/interactions` - Log new interaction
-
-#### AI Insights
-- `GET /api/insights` - Fetch AI suggestions
-- `POST /api/insights` - Mark insight as acted upon
-
-## 🚀 Getting Started
+## 📦 Installation
 
 ### Prerequisites
 - Node.js 18+
 - PostgreSQL 12+
-- npm or bun
+- Google OAuth credentials
+- WhatsApp Business API credentials (optional)
 
-### Installation
+### Setup Steps
 
-1. **Install dependencies:**
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/torddey/PulseCRM.git
+   cd PulseCRM
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Create database**:
+   ```bash
+   createdb -h localhost -U $PGUSER crm_db
+   ```
+
+4. **Set up environment variables**:
+   ```bash
+   cp .env.example .env.local
+   # Edit .env.local with your credentials
+   ```
+
+5. **Run migrations**:
+   ```bash
+   export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@localhost:5432/crm_db"
+   npx prisma migrate dev --name add_auth_tables
+   ```
+
+6. **Start development server**:
+   ```bash
+   npm run dev
+   ```
+
+7. **Open in browser**:
+   ```
+   http://localhost:3000
+   ```
+
+## 🔐 Environment Variables
+
+Create `.env.local` with the following:
+
 ```bash
-npm install
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/crm_db"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your_google_client_id"
+GOOGLE_CLIENT_SECRET="your_google_client_secret"
+
+# NextAuth
+NEXTAUTH_SECRET="your-secret-key-change-this-in-production"
+NEXTAUTH_URL="http://localhost:3000"
+
+# Application
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_NAME="Proactive AI Relationship Manager"
+
+# WhatsApp (optional)
+WHATSAPP_BUSINESS_ACCOUNT_ID="your_account_id"
+WHATSAPP_BUSINESS_PHONE_NUMBER_ID="your_phone_number_id"
+WHATSAPP_BUSINESS_API_TOKEN="your_api_token"
 ```
 
-2. **Set up environment variables:**
-```bash
-# Copy the example file
-cp .env.example .env.local
+## 📚 Documentation
 
-# Update with your database credentials
-DATABASE_URL="postgresql://user:password@localhost:5432/crm_relationship_manager"
-```
+- **[GOOGLE_AUTH_SETUP.md](./GOOGLE_AUTH_SETUP.md)** - Complete Google OAuth setup guide
+- **[INTEGRATION_SUMMARY.md](./INTEGRATION_SUMMARY.md)** - Feature overview and technical details
+- **[COMPLETION_REPORT.md](./COMPLETION_REPORT.md)** - Project completion status and checklist
+- **[WHATSAPP_INTEGRATION.md](./WHATSAPP_INTEGRATION.md)** - WhatsApp integration guide
 
-3. **Database is already set up** with schema in `schema.sql`
+## 🚀 Quick Start
 
-4. **Start the development server:**
-```bash
-npm run dev
-```
+### Sign In
+1. Visit `http://localhost:3000`
+2. Click "Sign in with Google"
+3. Authenticate with your Google account
+4. You'll be redirected to the dashboard
 
-5. **Open in browser:**
-```
-http://localhost:3000
-```
+### Add a Client
+1. Click "Add New Client" in Quick Actions
+2. Fill in client details (name, email, phone, company)
+3. Click "Create Client"
+4. Client appears in dashboard
 
-## 📊 Dashboard Features
+### Log Interaction
+1. Click "Log Interaction" in Quick Actions
+2. Select client and interaction type
+3. Add notes and sentiment
+4. Click "Save Interaction"
 
-### Overview Tab
-- Real-time client health status
-- Key metrics at a glance
-- Quick action buttons
+### Schedule Follow-Up
+1. Click "Schedule Follow-Up" in Quick Actions
+2. Select client and follow-up date
+3. Choose communication method (Email, SMS, WhatsApp, Call)
+4. Add message template
+5. Click "Schedule"
 
-### Follow-Ups Tab
-- Pending follow-ups sorted by date
-- Communication method selection
-- Automated message templates
+### Report Complaint
+1. Click "Report Complaint" in Quick Actions
+2. Select client and complaint category
+3. Add description and priority
+4. Click "Report Complaint"
 
-### Complaints Tab
-- Open complaints with priority levels
-- Assignment tracking
-- Resolution workflow
+## 🔧 API Routes
 
-### AI Insights Tab
-- At-risk client alerts
-- Suggested follow-up actions
-- Churn predictions
-- Engagement opportunities
+### Authentication
+- `GET /api/auth/signin` - Sign in page
+- `POST /api/auth/callback/google` - Google OAuth callback
+- `GET /api/auth/session` - Get current session
+- `POST /api/auth/signout` - Sign out
 
-### Interactions Tab
-- Complete communication history
-- Sentiment analysis
-- Key points extraction
-- Suggested next actions
+### Clients
+- `GET /api/clients` - List all clients
+- `POST /api/clients` - Create new client
+- `GET /api/clients/[id]` - Get client details
+- `PUT /api/clients/[id]` - Update client
+- `DELETE /api/clients/[id]` - Delete client
 
-## 🔌 API Usage Examples
+### Interactions
+- `GET /api/interactions` - List interactions
+- `POST /api/interactions` - Create interaction
+- `GET /api/interactions/[id]` - Get interaction details
 
-### Create a Client
-```bash
-curl -X POST http://localhost:3000/api/clients \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "John Doe",
-    "email": "john@example.com",
-    "phone": "+1234567890",
-    "company": "Acme Corp"
-  }'
-```
+### Complaints
+- `GET /api/complaints` - List complaints
+- `POST /api/complaints` - Create complaint
+- `PUT /api/complaints/[id]` - Update complaint status
 
-### Schedule a Follow-Up
-```bash
-curl -X POST http://localhost:3000/api/followups \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clientId": "client-id-here",
-    "title": "Check in on project status",
-    "scheduledFor": "2026-04-15T10:00:00Z",
-    "method": "WHATSAPP"
-  }'
-```
+### Follow-Ups
+- `GET /api/follow-ups` - List follow-ups
+- `POST /api/follow-ups` - Schedule follow-up
+- `PUT /api/follow-ups/[id]` - Update follow-up status
 
-### Log an Interaction
-```bash
-curl -X POST http://localhost:3000/api/interactions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clientId": "client-id-here",
-    "type": "CALL",
-    "content": "Discussed project requirements and timeline",
-    "handledBy": "John Smith",
-    "sentiment": "POSITIVE",
-    "keyPoints": ["Approved budget", "Timeline confirmed"]
-  }'
-```
+### WhatsApp
+- `POST /api/whatsapp/send` - Send WhatsApp message
+- `POST /api/whatsapp/webhook` - Receive WhatsApp messages
 
-### Report a Complaint
-```bash
-curl -X POST http://localhost:3000/api/complaints \
-  -H "Content-Type: application/json" \
-  -d '{
-    "clientId": "client-id-here",
-    "title": "Delayed delivery",
-    "description": "Product was delivered 3 days late",
-    "category": "DELIVERY",
-    "priority": "HIGH"
-  }'
-```
+## 📊 Database Schema
 
-## 🤖 AI Features
+### User
+- `id` - Unique identifier
+- `email` - User email (unique)
+- `name` - User name
+- `image` - Profile image URL
+- `role` - User role (USER, ADMIN)
+- `isActive` - Account status
+- `createdAt` - Account creation date
+- `updatedAt` - Last update date
 
-### Automatic Insights Generated For:
+### Client
+- `id` - Unique identifier
+- `name` - Client name
+- `email` - Client email (unique)
+- `phone` - Client phone number
+- `company` - Client company
+- `healthStatus` - GREEN, YELLOW, or RED
+- `lastInteractionDate` - Last contact date
+- `nextFollowUpDate` - Scheduled follow-up date
+- `notes` - Client notes
+- `tags` - Client tags/categories
+- `createdAt` - Record creation date
+- `updatedAt` - Last update date
 
-1. **At-Risk Clients**
-   - Triggered by: Negative interactions, overdue follow-ups, open complaints
-   - Action: Immediate outreach recommended
+### Interaction
+- `id` - Unique identifier
+- `clientId` - Associated client
+- `type` - CALL, EMAIL, SMS, WHATSAPP, MEETING, NOTE, FEEDBACK
+- `subject` - Interaction subject
+- `content` - Interaction details
+- `handledBy` - Staff member name
+- `sentiment` - POSITIVE, NEUTRAL, NEGATIVE
+- `keyPoints` - Important takeaways
+- `suggestedAction` - AI-suggested next action
+- `createdAt` - Interaction date
 
-2. **Follow-Up Reminders**
-   - Triggered by: Scheduled follow-up dates
-   - Action: Staff notification with suggested message
+### Complaint
+- `id` - Unique identifier
+- `clientId` - Associated client
+- `title` - Complaint title
+- `description` - Complaint details
+- `category` - PRODUCT_QUALITY, SERVICE_DELIVERY, BILLING, SUPPORT, DELIVERY, OTHER
+- `status` - PENDING, IN_PROGRESS, RESOLVED, URGENT
+- `priority` - LOW, MEDIUM, HIGH, CRITICAL
+- `assignedTo` - Assigned staff member
+- `resolutionNotes` - How it was resolved
+- `resolvedAt` - Resolution date
+- `lastReminderSent` - Last reminder date
+- `reminderCount` - Number of reminders sent
+- `createdAt` - Report date
+- `updatedAt` - Last update date
 
-3. **Complaint Alerts**
-   - Triggered by: New complaints, especially critical ones
-   - Action: Immediate escalation and resolution tracking
-
-4. **Churn Predictions**
-   - Triggered by: Pattern analysis of interactions and engagement
-   - Action: Proactive retention strategies
-
-5. **Engagement Opportunities**
-   - Triggered by: Positive interactions, long-term clients
-   - Action: Upsell or expansion opportunities
-
-## 📈 Metrics & Analytics
-
-### Client Health Score (0-100)
-- Based on: Interaction frequency, sentiment, complaint resolution
-- Updated: After each interaction or complaint
-
-### Churn Risk (0-100)
-- Based on: Days since last interaction, open complaints, negative sentiment
-- Updated: Daily
-
-### Engagement Metrics
-- Total interactions
-- Last interaction date
-- Pending follow-ups
-- Open complaints
+### FollowUp
+- `id` - Unique identifier
+- `clientId` - Associated client
+- `title` - Follow-up title
+- `description` - Follow-up details
+- `scheduledFor` - Scheduled date/time
+- `status` - PENDING, SENT, COMPLETED, SKIPPED
+- `method` - EMAIL, SMS, WHATSAPP, CALL, IN_PERSON
+- `messageTemplate` - Message to send
+- `completedAt` - Completion date
+- `completedBy` - Staff member who completed it
+- `reminderSentAt` - Reminder sent date
+- `createdAt` - Creation date
+- `updatedAt` - Last update date
 
 ## 🔐 Security
 
-- Database credentials stored in environment variables
-- API routes validate all inputs
-- Cascade delete prevents orphaned records
-- Timestamps track all changes
+### Implemented
+- ✅ Google OAuth authentication
+- ✅ Secure session tokens (JWT + Database)
+- ✅ CSRF protection
+- ✅ Environment variable protection
+- ✅ Secure password hashing (bcrypt)
+- ✅ Database-backed sessions
+- ✅ Automatic token refresh
+- ✅ Secure cookie configuration
 
-## 📝 Database Schema Details
-
-### Client Health Status
-- **GREEN**: Happy, engaged client (recent positive interactions)
-- **YELLOW**: Inactive client (no interaction in 30+ days)
-- **RED**: At-risk client (negative sentiment, open complaints, overdue follow-ups)
-
-### Interaction Types
-- CALL - Phone conversation
-- EMAIL - Email communication
-- SMS - Text message
-- WHATSAPP - WhatsApp message
-- MEETING - In-person or video meeting
-- NOTE - Internal note
-- FEEDBACK - Customer feedback
-
-### Complaint Categories
-- PRODUCT_QUALITY - Product defects or quality issues
-- SERVICE_DELIVERY - Service not meeting expectations
-- BILLING - Billing or payment issues
-- SUPPORT - Support quality issues
-- DELIVERY - Delivery or logistics issues
-- OTHER - Other issues
-
-### Complaint Priority
-- LOW - Can be addressed within 2 weeks
-- MEDIUM - Should be addressed within 1 week
-- HIGH - Should be addressed within 2-3 days
-- CRITICAL - Immediate action required
+### Best Practices
+- Use strong `NEXTAUTH_SECRET` (32+ characters)
+- Enable HTTPS in production
+- Regularly rotate API credentials
+- Monitor authentication logs
+- Implement rate limiting
+- Use secure database backups
 
 ## 🚀 Deployment
 
-### Deploy to Vercel
-```bash
-vercel deploy
-```
+### Vercel (Recommended)
+1. Push code to GitHub
+2. Connect repository to Vercel
+3. Set environment variables in Vercel dashboard
+4. Deploy automatically
 
-### Environment Variables for Production
-```
-DATABASE_URL=postgresql://...
-NODE_ENV=production
-```
-
-## 📚 Tech Stack
-
-- **Frontend**: Next.js 14 (App Router), React, TypeScript
-- **UI Components**: shadcn/ui
-- **Styling**: Tailwind CSS
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **API**: Next.js API Routes
-
-## 🤝 Contributing
-
-This is a complete CRM system ready for production use. Customize as needed for your business.
+### Other Platforms
+1. Set environment variables
+2. Run migrations: `npx prisma migrate deploy`
+3. Build: `npm run build`
+4. Start: `npm start`
 
 ## 📞 Support
 
-For issues or questions, refer to the API documentation in each route file.
+### Documentation
+- [Google OAuth Setup](./GOOGLE_AUTH_SETUP.md)
+- [Integration Summary](./INTEGRATION_SUMMARY.md)
+- [Completion Report](./COMPLETION_REPORT.md)
+- [WhatsApp Integration](./WHATSAPP_INTEGRATION.md)
+
+### Resources
+- [NextAuth.js Documentation](https://authjs.dev/)
+- [Prisma Documentation](https://www.prisma.io/docs/)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [shadcn/ui Components](https://ui.shadcn.com/)
+
+## 📝 License
+
+This project is proprietary and confidential.
+
+## 👤 Author
+
+Evans Torddey (ea.torddey@gmail.com)
+
+## 🎯 Roadmap
+
+### Phase 1 (Complete ✅)
+- [x] Google OAuth authentication
+- [x] WhatsApp integration
+- [x] Client management
+- [x] Interaction tracking
+- [x] Complaint management
+- [x] Follow-up scheduling
+
+### Phase 2 (Planned)
+- [ ] Email integration
+- [ ] SMS integration
+- [ ] Advanced analytics
+- [ ] Custom reports
+- [ ] Team collaboration
+- [ ] Mobile app
+
+### Phase 3 (Future)
+- [ ] AI chatbot
+- [ ] Predictive analytics
+- [ ] Multi-language support
+- [ ] Advanced automation
+- [ ] API marketplace
+
+## 🤝 Contributing
+
+This is a proprietary project. For contributions or issues, contact the author.
 
 ---
 
-**Built with ❤️ for better client relationships**
+**Status**: ✅ **Production Ready**
+
+**Last Updated**: April 10, 2026
+
+**Version**: 1.0.0
+
+**Repository**: https://github.com/torddey/PulseCRM.git
