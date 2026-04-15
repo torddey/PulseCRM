@@ -10,6 +10,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { areValidClientServices, normalizeClientServices } from '@/lib/client-services'
+
+const E164_PHONE_REGEX = /^\+[1-9]\d{7,14}$/
 
 /**
  * GET handler - Fetch all clients
@@ -97,7 +100,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, phone, company, notes } = body
+    const { name, email, phone, company, notes, services } = body
+    const normalizedPhone = typeof phone === 'string' ? phone.trim() : ''
+    const normalizedServices = normalizeClientServices(services)
 
     // Validate required fields
     if (!name || !email) {
@@ -107,13 +112,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (normalizedPhone && !E164_PHONE_REGEX.test(normalizedPhone)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Phone must be in E.164 format (e.g., +233550106970) or left blank',
+        },
+        { status: 400 }
+      )
+    }
+
+    if (normalizedServices.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Please select at least one requested service' },
+        { status: 400 }
+      )
+    }
+
+    if (!areValidClientServices(normalizedServices)) {
+      return NextResponse.json(
+        { success: false, error: 'One or more selected services are invalid' },
+        { status: 400 }
+      )
+    }
+
     // Create new client
     const client = await prisma.client.create({
       data: {
         name,
         email,
-        phone: phone || null,
+        phone: normalizedPhone || null,
         company: company || null,
+        services: {
+          set: normalizedServices,
+        },
         notes: notes || null,
         healthStatus: 'GREEN', // New clients start as healthy
       },

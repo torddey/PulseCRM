@@ -5,6 +5,7 @@
  */
 
 import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 // Declare global type for Prisma client
 declare global {
@@ -12,9 +13,14 @@ declare global {
 }
 
 // Create or reuse existing Prisma client
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL || '',
+})
+
 export const prisma =
   global.prisma ||
   new PrismaClient({
+    adapter,
     log: ['error', 'warn'],
   })
 

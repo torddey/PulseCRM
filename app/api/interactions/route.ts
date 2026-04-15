@@ -11,11 +11,12 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { analyzeClientMessage } from '@/lib/ai-insights'
 
 /**
  * GET handler - Fetch interactions
  * Query params:
- * - clientId: Filter by specific client (required)
+ * - clientId: Filter by specific client (optional)
  * - type: Filter by type (CALL, EMAIL, SMS, WHATSAPP, MEETING, NOTE, FEEDBACK)
  * - sentiment: Filter by sentiment (POSITIVE, NEUTRAL, NEGATIVE)
  * - limit: Number of interactions to return (default: 50)
@@ -28,32 +29,34 @@ export async function GET(request: NextRequest) {
     const sentiment = searchParams.get('sentiment')
     const limit = parseInt(searchParams.get('limit') || '50')
 
-    // clientId is required
-    if (!clientId) {
-      return NextResponse.json(
-        { success: false, error: 'clientId is required' },
-        { status: 400 }
-      )
-    }
-
     // Build filter conditions
-    const where: any = { clientId }
+    const where: any = {}
+    if (clientId) where.clientId = clientId
     if (type) where.type = type
     if (sentiment) where.sentiment = sentiment
 
     // Fetch interactions sorted by creation date (newest first)
     const interactions = await prisma.interaction.findMany({
       where,
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },
       take: limit,
     })
 
-    // Get sentiment breakdown
+    // Get sentiment breakdown based on active filters
     const sentimentBreakdown = await prisma.interaction.groupBy({
       by: ['sentiment'],
-      where: { clientId },
+      where,
       _count: true,
     })
 
@@ -126,6 +129,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const aiAnalysis = await analyzeClientMessage({
+      clientName: client.name,
+      message: content,
+      interactionType: type,
+      fallbackInsightType: 'AT_RISK_CLIENT',
+    })
+
+    const finalSentiment = aiAnalysis?.sentiment || sentiment
+    const finalKeyPoints = aiAnalysis?.keyPoints?.length ? aiAnalysis.keyPoints : keyPoints
+    const finalSuggestedAction = aiAnalysis?.suggestedAction || suggestedAction
+
     // Create interaction
     const interaction = await prisma.interaction.create({
       data: {
@@ -134,9 +148,9 @@ export async function POST(request: NextRequest) {
         subject: subject || null,
         content,
         handledBy,
-        sentiment,
-        keyPoints,
-        suggestedAction: suggestedAction || null,
+        sentiment: finalSentiment,
+        keyPoints: finalKeyPoints,
+        suggestedAction: finalSuggestedAction || null,
       },
     })
 
@@ -147,9 +161,9 @@ export async function POST(request: NextRequest) {
         lastInteractionDate: new Date(),
         // If interaction is positive, improve health status
         healthStatus:
-          sentiment === 'POSITIVE'
+          finalSentiment === 'POSITIVE'
             ? 'GREEN'
-            : sentiment === 'NEGATIVE'
+            : finalSentiment === 'NEGATIVE'
               ? 'RED'
               : client.healthStatus,
       },
@@ -170,8 +184,20 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // If negative sentiment, create AI insight
-    if (sentiment === 'NEGATIVE') {
+    // Create AI insight from LLM output when available.
+    // Fallback to rule-based insight for negative sentiment.
+    if (aiAnalysis) {
+      await prisma.aIInsight.create({
+        data: {
+          clientId,
+          type: aiAnalysis.insightType,
+          title: aiAnalysis.title,
+          description: aiAnalysis.description,
+          suggestedAction: aiAnalysis.suggestedAction,
+          confidence: aiAnalysis.confidence,
+        },
+      })
+    } else if (finalSentiment === 'NEGATIVE') {
       await prisma.aIInsight.create({
         data: {
           clientId,

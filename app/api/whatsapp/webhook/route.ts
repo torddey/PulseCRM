@@ -17,7 +17,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { analyzeClientMessage } from '@/lib/ai-insights'
 import {
+  sendWhatsAppMessage,
   validateWebhookSignature,
   parseIncomingMessage,
 } from '@/lib/whatsapp'
@@ -83,10 +85,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Determine sentiment from message
-    // Simple heuristic: check for positive/negative keywords
-    // In production, you'd use AI/NLP for better accuracy
-    const sentiment = determineSentiment(incomingMessage.body)
+    const aiAnalysis = await analyzeClientMessage({
+      clientName: client.name,
+      message: incomingMessage.body,
+      interactionType: 'WHATSAPP',
+      fallbackInsightType: 'COMPLAINT_ALERT',
+    })
+    const sentiment = aiAnalysis?.sentiment || determineSentiment(incomingMessage.body)
+    const keyPoints = aiAnalysis?.keyPoints?.length ? aiAnalysis.keyPoints : extractKeyPoints(incomingMessage.body)
 
     // Log the interaction in database
     // This creates a record of the communication
@@ -98,7 +104,7 @@ export async function POST(request: NextRequest) {
         content: incomingMessage.body,
         handledBy: 'WhatsApp Webhook', // Automated, not handled by specific person
         sentiment: sentiment,
-        keyPoints: extractKeyPoints(incomingMessage.body),
+        keyPoints,
       },
     })
 
@@ -112,16 +118,26 @@ export async function POST(request: NextRequest) {
         // Negative sentiment might indicate at-risk client
         healthStatus:
           sentiment === 'NEGATIVE'
-            ? 'AT_RISK'
+            ? 'RED'
             : sentiment === 'POSITIVE'
-              ? 'HEALTHY'
-              : 'INACTIVE',
+              ? 'GREEN'
+              : 'YELLOW',
       },
     })
 
-    // Create AI insight if sentiment is negative
-    // Alert team to potential issues
-    if (sentiment === 'NEGATIVE') {
+    if (aiAnalysis) {
+      await prisma.aIInsight.create({
+        data: {
+          clientId: client.id,
+          type: aiAnalysis.insightType,
+          title: aiAnalysis.title,
+          description: aiAnalysis.description,
+          suggestedAction: aiAnalysis.suggestedAction,
+          confidence: aiAnalysis.confidence,
+        },
+      })
+    } else if (sentiment === 'NEGATIVE') {
+      // Fallback if LLM is unavailable.
       await prisma.aIInsight.create({
         data: {
           clientId: client.id,
@@ -132,6 +148,88 @@ export async function POST(request: NextRequest) {
           confidence: 75,
         },
       })
+    }
+
+    // Auto-response flow:
+    // For negative sentiment, send an immediate empathetic message and create an urgent follow-up.
+    if (sentiment === 'NEGATIVE') {
+      const now = new Date()
+      const autoReplyCooldownMs = 2 * 60 * 60 * 1000 // 2 hours
+      const followUpCooldownMs = 6 * 60 * 60 * 1000 // 6 hours
+
+      const recentAutoReply = await prisma.interaction.findFirst({
+        where: {
+          clientId: client.id,
+          type: 'WHATSAPP',
+          handledBy: 'SYSTEM_AUTOMATION',
+          subject: 'Automated sentiment acknowledgment',
+          createdAt: {
+            gte: new Date(now.getTime() - autoReplyCooldownMs),
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+
+      if (!recentAutoReply && client.phone) {
+        const autoReplyMessage = `Hi ${client.name}, thank you for sharing this. We're sorry for the experience and we've flagged your message for urgent follow-up. A team member will reach out shortly.`
+        const sendResult = await sendWhatsAppMessage(client.phone, autoReplyMessage)
+
+        if (sendResult.success) {
+          await prisma.interaction.create({
+            data: {
+              clientId: client.id,
+              type: 'WHATSAPP',
+              subject: 'Automated sentiment acknowledgment',
+              content: autoReplyMessage,
+              handledBy: 'SYSTEM_AUTOMATION',
+              sentiment: 'NEUTRAL',
+              keyPoints: ['Auto-reply sent after negative client sentiment'],
+              suggestedAction: 'Human agent to follow up and resolve concern',
+            },
+          })
+        } else {
+          console.error('Auto-reply WhatsApp send failed:', sendResult.error)
+        }
+      }
+
+      const recentUrgentFollowUp = await prisma.followUp.findFirst({
+        where: {
+          clientId: client.id,
+          title: 'Urgent sentiment follow-up',
+          createdAt: {
+            gte: new Date(now.getTime() - followUpCooldownMs),
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      })
+
+      if (!recentUrgentFollowUp) {
+        const scheduledFor = new Date(now.getTime() + 15 * 60 * 1000) // 15 minutes from now
+        await prisma.followUp.create({
+          data: {
+            clientId: client.id,
+            title: 'Urgent sentiment follow-up',
+            description: `Negative sentiment detected from WhatsApp message: "${incomingMessage.body.slice(0, 200)}"`,
+            scheduledFor,
+            method: 'CALL',
+            status: 'PENDING',
+            messageTemplate: null,
+          },
+        })
+
+        if (!client.nextFollowUpDate || scheduledFor < client.nextFollowUpDate) {
+          await prisma.client.update({
+            where: { id: client.id },
+            data: {
+              nextFollowUpDate: scheduledFor,
+            },
+          })
+        }
+      }
     }
 
     console.log('Interaction logged successfully:', {

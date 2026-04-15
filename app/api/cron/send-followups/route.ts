@@ -45,16 +45,18 @@ export async function GET(request: NextRequest) {
 
     console.log('Starting automated follow-up job...')
 
-    // Find all follow-ups that are due
+    // Find all follow-ups that are due.
     // A follow-up is due if:
-    // 1. dueDate is today or earlier
-    // 2. It hasn't been completed yet
+    // 1. scheduledFor is now or earlier
+    // 2. status is still PENDING
+    // 3. method is WHATSAPP (only WhatsApp auto-send here)
     const dueFollowUps = await prisma.followUp.findMany({
       where: {
-        dueDate: {
-          lte: new Date(), // Due date is today or earlier
+        scheduledFor: {
+          lte: new Date(),
         },
-        completed: false, // Not yet completed
+        status: 'PENDING',
+        method: 'WHATSAPP',
       },
       include: {
         client: true, // Include client info for messaging
@@ -103,13 +105,14 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        // Mark follow-up as completed
-        // This prevents sending duplicate messages
+        // Mark follow-up as sent to prevent duplicate automated messages.
         await prisma.followUp.update({
           where: { id: followUp.id },
           data: {
-            completed: true,
+            status: 'SENT',
             completedAt: new Date(),
+            completedBy: 'SYSTEM_AUTOMATION',
+            reminderSentAt: new Date(),
           },
         })
 

@@ -1,6 +1,8 @@
-import { signIn } from "@/auth"
+'use client'
+
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { signIn } from "next-auth/react"
 
 /**
  * Sign In Page
@@ -10,7 +12,7 @@ import { Card } from "@/components/ui/card"
  * After successful authentication, they're redirected to dashboard
  */
 
-export default async function SignInPage() {
+export default function SignInPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 px-4">
       <Card className="w-full max-w-md p-8">
@@ -25,19 +27,11 @@ export default async function SignInPage() {
         </div>
 
         {/* Sign In Form */}
-        <form
-          action={async () => {
-            "use server"
-            // Trigger Google OAuth sign-in flow
-            // User will be redirected to Google login
-            // After authentication, they return to the app
-            await signIn("google", { redirectTo: "/dashboard" })
-          }}
-          className="space-y-4"
-        >
+        <div className="space-y-4">
           <Button
-            type="submit"
+            type="button"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg font-semibold"
+            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
           >
             {/* Google Icon */}
             <svg
@@ -52,7 +46,7 @@ export default async function SignInPage() {
             </svg>
             Sign in with Google
           </Button>
-        </form>
+        </div>
 
         {/* Footer */}
         <div className="mt-8 pt-6 border-t border-slate-200">

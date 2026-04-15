@@ -32,7 +32,7 @@ interface WhatsAppSenderProps {
   clientId: string
   clientName: string
   clientPhone: string
-  onMessageSent?: () => void
+  onMessageSent?: (result: { messageSid?: string }) => void
 }
 
 /**
@@ -141,7 +141,7 @@ export function WhatsAppSender({
 
       // Call callback if provided
       if (onMessageSent) {
-        onMessageSent()
+        onMessageSent({ messageSid: data?.messageSid })
       }
     } catch (error) {
       // Handle error

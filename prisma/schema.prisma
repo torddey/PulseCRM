@@ -1,109 +1,190 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-// ============================================================================
-// CLIENT MANAGEMENT
-// ============================================================================
-
-/**
- * Client model - Core entity representing a customer/client
- * Tracks all client information and health status
- */
+/// *
+///  * Client model - Core entity representing a customer/client
+///  * Tracks all client information and health status
 model Client {
-  id                String      @id @default(cuid())
-  name              String      @db.VarChar(255)
-  email             String      @unique @db.VarChar(255)
-  phone             String?     @db.VarChar(20)
-  company           String?     @db.VarChar(255)
-  
-  // Client health status - determines if client is at risk
-  // GREEN: Happy, engaged client
-  // YELLOW: Inactive, needs attention
-  // RED: At risk of churn, urgent action needed
-  healthStatus      HealthStatus @default(GREEN)
-  
-  // Engagement tracking
+  id                  String        @id @default(cuid())
+  name                String        @db.VarChar(255)
+  email               String        @unique @db.VarChar(255)
+  phone               String?       @db.VarChar(20)
+  company             String?       @db.VarChar(255)
+  services            String[]      @default([])
+  healthStatus        HealthStatus  @default(GREEN)
   lastInteractionDate DateTime?
-  nextFollowUpDate   DateTime?
-  
-  // Client metadata
-  notes              String?     @db.Text
-  tags               String[]    @default([])
-  
-  // Relationships
-  interactions       Interaction[]
-  complaints         Complaint[]
-  followUps          FollowUp[]
-  
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  
+  nextFollowUpDate    DateTime?
+  notes               String?
+  tags                String[]      @default([])
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  complaints          Complaint[]
+  followUps           FollowUp[]
+  interactions        Interaction[]
+
   @@index([healthStatus])
   @@index([lastInteractionDate])
   @@index([nextFollowUpDate])
 }
 
-/**
- * Health status enum for client status tracking
- * Used to identify at-risk clients and prioritize follow-ups
- */
-enum HealthStatus {
-  GREEN   // Happy, engaged client
-  YELLOW  // Inactive, needs attention
-  RED     // At risk of churn
-}
-
-// ============================================================================
-// INTERACTION MEMORY
-// ============================================================================
-
-/**
- * Interaction model - Complete history of all client communications
- * Stores calls, messages, emails, and meetings
- * Ensures no more "Wait... what did this client say again?"
- */
+/// *
+///  * Interaction model - Complete history of all client communications
+///  * Stores calls, messages, emails, and meetings
+///  * Ensures no more "Wait... what did this client say again?"
 model Interaction {
-  id              String            @id @default(cuid())
+  id              String          @id @default(cuid())
   clientId        String
-  client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  
-  // Type of interaction
   type            InteractionType
-  
-  // Content and details
-  subject         String?           @db.VarChar(255)
-  content         String            @db.Text
-  
-  // Who handled the interaction
-  handledBy       String            @db.VarChar(255)
-  
-  // Sentiment analysis - AI determines if positive, neutral, or negative
-  sentiment       Sentiment         @default(NEUTRAL)
-  
-  // Key takeaways from the interaction
-  keyPoints       String[]          @default([])
-  
-  // Next action suggested by AI
-  suggestedAction String?           @db.Text
-  
-  createdAt       DateTime          @default(now())
-  
+  subject         String?         @db.VarChar(255)
+  content         String
+  handledBy       String          @db.VarChar(255)
+  sentiment       Sentiment       @default(NEUTRAL)
+  keyPoints       String[]        @default([])
+  suggestedAction String?
+  createdAt       DateTime        @default(now())
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
   @@index([clientId])
   @@index([type])
   @@index([sentiment])
 }
 
-/**
- * Interaction type enum - categorizes different communication methods
- */
+/// *
+///  * Complaint model - Logs every issue and tracks resolution
+///  * Sends reminders until resolved - ensures nothing falls through cracks
+model Complaint {
+  id               String            @id @default(cuid())
+  clientId         String
+  title            String            @db.VarChar(255)
+  description      String
+  category         ComplaintCategory
+  status           ComplaintStatus   @default(PENDING)
+  priority         Priority          @default(MEDIUM)
+  assignedTo       String?           @db.VarChar(255)
+  resolutionNotes  String?
+  resolvedAt       DateTime?
+  lastReminderSent DateTime?
+  reminderCount    Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+}
+
+/// *
+///  * FollowUp model - Automatically reminds staff to check on clients
+///  * Sends WhatsApp/SMS follow-ups automatically
+///  * Ensures consistent, timely engagement
+model FollowUp {
+  id              String              @id @default(cuid())
+  clientId        String
+  title           String              @db.VarChar(255)
+  description     String?
+  scheduledFor    DateTime
+  status          FollowUpStatus      @default(PENDING)
+  method          CommunicationMethod @default(EMAIL)
+  messageTemplate String?
+  completedAt     DateTime?
+  completedBy     String?             @db.VarChar(255)
+  reminderSentAt  DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([scheduledFor])
+  @@index([status])
+}
+
+/// *
+///  * AIInsight model - AI-generated suggestions for staff
+///  * Suggests what to say, when to follow up, which clients are at risk
+///  * Your secret weapon for proactive client management
+model AIInsight {
+  id              String      @id @default(cuid())
+  clientId        String?
+  type            InsightType
+  title           String      @db.VarChar(255)
+  description     String
+  suggestedAction String?
+  confidence      Int         @default(75)
+  actedUpon       Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+
+  @@index([type])
+  @@index([actedUpon])
+}
+
+/// *
+///  * ClientMetric model - Tracks metrics for dashboard visualization
+///  * Enables the Client Health Dashboard (Green/Yellow/Red)
+model ClientMetric {
+  id                  String   @id @default(cuid())
+  clientId            String   @unique
+  totalInteractions   Int      @default(0)
+  lastInteractionDays Int?
+  openComplaints      Int      @default(0)
+  resolvedComplaints  Int      @default(0)
+  pendingFollowUps    Int      @default(0)
+  completedFollowUps  Int      @default(0)
+  healthScore         Int      @default(75)
+  churnRisk           Int      @default(0)
+  updatedAt           DateTime @updatedAt
+
+  @@index([healthScore])
+  @@index([churnRisk])
+}
+
+/// *
+///  * TeamMember model - Tracks staff and their responsibilities
+///  * Manages who handles which clients and tasks
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String   @db.VarChar(255)
+  email     String   @unique @db.VarChar(255)
+  role      String   @db.VarChar(100)
+  phone     String?  @db.VarChar(20)
+  whatsapp  String?  @db.VarChar(20)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// *
+///  * AutomationRule model - Defines rules for automated actions
+///  * Enables smart follow-ups and reminders without manual intervention
+model AutomationRule {
+  id          String   @id @default(cuid())
+  name        String   @db.VarChar(255)
+  description String?
+  trigger     String   @db.VarChar(100)
+  action      String   @db.VarChar(100)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// *
+///  * Health status enum for client status tracking
+///  * Used to identify at-risk clients and prioritize follow-ups
+enum HealthStatus {
+  GREEN
+  YELLOW
+  RED
+}
+
+/// *
+///  * Interaction type enum - categorizes different communication methods
 enum InteractionType {
   CALL
   EMAIL
@@ -114,60 +195,16 @@ enum InteractionType {
   FEEDBACK
 }
 
-/**
- * Sentiment enum - AI analysis of interaction tone
- */
+/// *
+///  * Sentiment enum - AI analysis of interaction tone
 enum Sentiment {
   POSITIVE
   NEUTRAL
   NEGATIVE
 }
 
-// ============================================================================
-// COMPLAINT TRACKING (Zero Chaos)
-// ============================================================================
-
-/**
- * Complaint model - Logs every issue and tracks resolution
- * Sends reminders until resolved - ensures nothing falls through cracks
- */
-model Complaint {
-  id              String            @id @default(cuid())
-  clientId        String
-  client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  
-  // Complaint details
-  title           String            @db.VarChar(255)
-  description     String            @db.Text
-  category        ComplaintCategory
-  
-  // Status tracking - Pending / Resolved / Urgent
-  status          ComplaintStatus   @default(PENDING)
-  priority        Priority          @default(MEDIUM)
-  
-  // Assignment and tracking
-  assignedTo      String?           @db.VarChar(255)
-  
-  // Resolution tracking
-  resolutionNotes String?           @db.Text
-  resolvedAt      DateTime?
-  
-  // Reminder system - sends reminders until resolved
-  lastReminderSent DateTime?
-  reminderCount   Int               @default(0)
-  
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  
-  @@index([clientId])
-  @@index([status])
-  @@index([priority])
-  @@index([assignedTo])
-}
-
-/**
- * Complaint category enum - categorizes types of issues
- */
+/// *
+///  * Complaint category enum - categorizes types of issues
 enum ComplaintCategory {
   PRODUCT_QUALITY
   SERVICE_DELIVERY
@@ -177,9 +214,8 @@ enum ComplaintCategory {
   OTHER
 }
 
-/**
- * Complaint status enum - tracks resolution progress
- */
+/// *
+///  * Complaint status enum - tracks resolution progress
 enum ComplaintStatus {
   PENDING
   IN_PROGRESS
@@ -187,9 +223,8 @@ enum ComplaintStatus {
   URGENT
 }
 
-/**
- * Priority enum - determines urgency of action
- */
+/// *
+///  * Priority enum - determines urgency of action
 enum Priority {
   LOW
   MEDIUM
@@ -197,54 +232,8 @@ enum Priority {
   CRITICAL
 }
 
-// ============================================================================
-// SMART FOLLOW-UP ENGINE
-// ============================================================================
-
-/**
- * FollowUp model - Automatically reminds staff to check on clients
- * Sends WhatsApp/SMS follow-ups automatically
- * Ensures consistent, timely engagement
- */
-model FollowUp {
-  id              String            @id @default(cuid())
-  clientId        String
-  client          Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  
-  // Follow-up details
-  title           String            @db.VarChar(255)
-  description     String?           @db.Text
-  
-  // Scheduling
-  scheduledFor    DateTime
-  
-  // Status tracking
-  status          FollowUpStatus    @default(PENDING)
-  
-  // Communication method
-  method          CommunicationMethod @default(EMAIL)
-  
-  // Template for automated messages
-  messageTemplate String?           @db.Text
-  
-  // Execution tracking
-  completedAt     DateTime?
-  completedBy     String?           @db.VarChar(255)
-  
-  // Reminder system
-  reminderSentAt  DateTime?
-  
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  
-  @@index([clientId])
-  @@index([scheduledFor])
-  @@index([status])
-}
-
-/**
- * Follow-up status enum - tracks follow-up progress
- */
+/// *
+///  * Follow-up status enum - tracks follow-up progress
 enum FollowUpStatus {
   PENDING
   SENT
@@ -252,9 +241,8 @@ enum FollowUpStatus {
   SKIPPED
 }
 
-/**
- * Communication method enum - how to reach the client
- */
+/// *
+///  * Communication method enum - how to reach the client
 enum CommunicationMethod {
   EMAIL
   SMS
@@ -263,136 +251,13 @@ enum CommunicationMethod {
   IN_PERSON
 }
 
-// ============================================================================
-// AI ASSISTANT & SUGGESTIONS
-// ============================================================================
-
-/**
- * AIInsight model - AI-generated suggestions for staff
- * Suggests what to say, when to follow up, which clients are at risk
- * Your secret weapon for proactive client management
- */
-model AIInsight {
-  id              String            @id @default(cuid())
-  clientId        String?
-  
-  // Type of insight
-  type            InsightType
-  
-  // The actual suggestion/insight
-  title           String            @db.VarChar(255)
-  description     String            @db.Text
-  
-  // Suggested action
-  suggestedAction String?           @db.Text
-  
-  // Confidence level (0-100)
-  confidence      Int               @default(75)
-  
-  // Whether this insight was acted upon
-  actedUpon       Boolean           @default(false)
-  
-  createdAt       DateTime          @default(now())
-  
-  @@index([type])
-  @@index([actedUpon])
-}
-
-/**
- * Insight type enum - categorizes AI suggestions
- */
+/// *
+///  * Insight type enum - categorizes AI suggestions
 enum InsightType {
-  AT_RISK_CLIENT        // Client is at risk of churn
-  FOLLOW_UP_REMINDER    // Time to follow up with client
-  SUGGESTED_MESSAGE     // AI-suggested message to send
-  COMPLAINT_ALERT       // New complaint needs attention
-  ENGAGEMENT_OPPORTUNITY // Opportunity to engage client
-  CHURN_PREDICTION      // Client likely to leave
-}
-
-// ============================================================================
-// DASHBOARD & ANALYTICS
-// ============================================================================
-
-/**
- * ClientMetric model - Tracks metrics for dashboard visualization
- * Enables the Client Health Dashboard (Green/Yellow/Red)
- */
-model ClientMetric {
-  id                    String    @id @default(cuid())
-  clientId              String    @unique
-  
-  // Engagement metrics
-  totalInteractions     Int       @default(0)
-  lastInteractionDays   Int?      // Days since last interaction
-  
-  // Complaint metrics
-  openComplaints        Int       @default(0)
-  resolvedComplaints    Int       @default(0)
-  
-  // Follow-up metrics
-  pendingFollowUps      Int       @default(0)
-  completedFollowUps    Int       @default(0)
-  
-  // Health score (0-100)
-  healthScore           Int       @default(75)
-  
-  // Churn risk (0-100)
-  churnRisk             Int       @default(0)
-  
-  updatedAt             DateTime  @updatedAt
-  
-  @@index([healthScore])
-  @@index([churnRisk])
-}
-
-// ============================================================================
-// STAFF & TEAM MANAGEMENT
-// ============================================================================
-
-/**
- * TeamMember model - Tracks staff and their responsibilities
- * Manages who handles which clients and tasks
- */
-model TeamMember {
-  id              String    @id @default(cuid())
-  name            String    @db.VarChar(255)
-  email           String    @unique @db.VarChar(255)
-  role            String    @db.VarChar(100)
-  
-  // Contact methods
-  phone           String?   @db.VarChar(20)
-  whatsapp        String?   @db.VarChar(20)
-  
-  // Status
-  isActive        Boolean   @default(true)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-}
-
-// ============================================================================
-// AUTOMATION & SCHEDULING
-// ============================================================================
-
-/**
- * AutomationRule model - Defines rules for automated actions
- * Enables smart follow-ups and reminders without manual intervention
- */
-model AutomationRule {
-  id              String    @id @default(cuid())
-  name            String    @db.VarChar(255)
-  description     String?   @db.Text
-  
-  // Rule trigger
-  trigger         String    @db.VarChar(100)
-  
-  // Rule action
-  action          String    @db.VarChar(100)
-  
-  // Configuration
-  isActive        Boolean   @default(true)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  AT_RISK_CLIENT
+  FOLLOW_UP_REMINDER
+  SUGGESTED_MESSAGE
+  COMPLAINT_ALERT
+  ENGAGEMENT_OPPORTUNITY
+  CHURN_PREDICTION
 }
