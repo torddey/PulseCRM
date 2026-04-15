@@ -23,6 +23,14 @@ import {
   validateWebhookSignature,
   parseIncomingMessage,
 } from '@/lib/whatsapp'
+import {
+  applyWorkflowAutomation,
+  createStageFollowUpIfMissing,
+  getOrCreateClientWorkflow,
+  inferNextStageFromMessage,
+  logInboundMessage,
+  transitionWorkflowStage,
+} from '@/lib/workflow-agent'
 
 /**
  * POST /api/whatsapp/webhook
@@ -62,6 +70,7 @@ export async function POST(request: NextRequest) {
     // Parse the incoming message
     // Extracts phone number, message text, media, etc.
     const incomingMessage = parseIncomingMessage(body)
+    const inboundEventId = incomingMessage.messageSid || `${incomingMessage.from}:${incomingMessage.timestamp}`
 
     console.log('Received WhatsApp message:', {
       from: incomingMessage.from,
@@ -84,6 +93,26 @@ export async function POST(request: NextRequest) {
         { status: 200 }
       )
     }
+
+    const duplicateInboundEvent = await prisma.workflowEvent.findUnique({
+      where: {
+        externalEventId: inboundEventId,
+      },
+    })
+
+    if (duplicateInboundEvent) {
+      return NextResponse.json(
+        { success: true, message: 'Duplicate webhook ignored' },
+        { status: 200 }
+      )
+    }
+
+    const workflow = await getOrCreateClientWorkflow(client.id, `${client.name} Service Workflow`)
+    await logInboundMessage({
+      workflowId: workflow.id,
+      body: incomingMessage.body,
+      externalEventId: inboundEventId,
+    })
 
     const aiAnalysis = await analyzeClientMessage({
       clientName: client.name,
@@ -148,6 +177,44 @@ export async function POST(request: NextRequest) {
           confidence: 75,
         },
       })
+    }
+
+    const inferredStage = inferNextStageFromMessage(workflow.stage, incomingMessage.body)
+    if (inferredStage && inferredStage !== workflow.stage) {
+      const updatedWorkflow = await transitionWorkflowStage({
+        workflowId: workflow.id,
+        toStage: inferredStage,
+        actor: 'CLIENT',
+        details: `Inferred from inbound WhatsApp message: ${incomingMessage.body.slice(0, 120)}`,
+      })
+
+      await applyWorkflowAutomation({
+        workflowId: updatedWorkflow.id,
+        clientName: client.name,
+        clientPhone: client.phone,
+      })
+
+      if (updatedWorkflow.stage === 'PRODUCTION') {
+        await createStageFollowUpIfMissing({
+          clientId: client.id,
+          stage: 'PRODUCTION',
+          scheduledFor: new Date(Date.now() + 12 * 60 * 60 * 1000),
+          title: 'Mid-production update',
+          description: 'Send a light-touch progress update and reassure delivery timeline.',
+          method: 'WHATSAPP',
+        })
+      }
+
+      if (updatedWorkflow.stage === 'DELIVERED') {
+        await createStageFollowUpIfMissing({
+          clientId: client.id,
+          stage: 'DELIVERED',
+          scheduledFor: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          title: 'Delivery satisfaction follow-up',
+          description: 'Check satisfaction and request quick feedback after delivery.',
+          method: 'WHATSAPP',
+        })
+      }
     }
 
     // Auto-response flow:

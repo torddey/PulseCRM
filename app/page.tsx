@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [followUps, setFollowUps] = useState<any[]>([])
   const [complaints, setComplaints] = useState<any[]>([])
   const [interactions, setInteractions] = useState<any[]>([])
+  const [workflows, setWorkflows] = useState<any[]>([])
   const [insights, setInsights] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState('overview')
   const [followUpStatusFilter, setFollowUpStatusFilter] = useState('PENDING')
@@ -59,6 +60,7 @@ export default function Dashboard() {
   const [isSubmittingClient, setIsSubmittingClient] = useState(false)
   const [addClientError, setAddClientError] = useState('')
   const [actionError, setActionError] = useState('')
+  const [workflowActionMessage, setWorkflowActionMessage] = useState('')
   const [addClientForm, setAddClientForm] = useState({
     name: '',
     email: '',
@@ -73,6 +75,14 @@ export default function Dashboard() {
     atRiskClients: 0,
     pendingFollowUps: 0,
     openComplaints: 0,
+  })
+  const [workflowMetrics, setWorkflowMetrics] = useState({
+    inquiryToPaymentConversion: 0,
+    averageInquiryToPaidHours: 0,
+    averageConceptApprovalHours: 0,
+    onTimeDeliveryRate: 0,
+    followupRate: 0,
+    complaintRateAfterDelivery: 0,
   })
   const [followUpForm, setFollowUpForm] = useState({
     clientId: '',
@@ -97,6 +107,7 @@ export default function Dashboard() {
     sentiment: 'NEUTRAL',
   })
   const [selectedWhatsAppClientId, setSelectedWhatsAppClientId] = useState('')
+  const [workflowStageSelection, setWorkflowStageSelection] = useState<Record<string, string>>({})
   const [whatsAppStatus, setWhatsAppStatus] = useState('')
   const [whatsAppStatusError, setWhatsAppStatusError] = useState('')
 
@@ -211,13 +222,15 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
-      const [clientsRes, followUpsRes, pendingFollowUpsRes, complaintsRes, interactionsRes, insightsRes] = await Promise.all([
+      const [clientsRes, followUpsRes, pendingFollowUpsRes, complaintsRes, interactionsRes, insightsRes, workflowMetricsRes, workflowsRes] = await Promise.all([
         fetch('/api/clients'),
         fetch('/api/followups?limit=200'),
         fetch('/api/followups?status=PENDING'),
         fetch('/api/complaints?limit=200'),
         fetch('/api/interactions?limit=200'),
         fetch('/api/insights?limit=200'),
+        fetch('/api/workflow/metrics?days=30'),
+        fetch('/api/workflow?limit=200'),
       ])
 
       const clientsPayload = await clientsRes.json()
@@ -226,6 +239,8 @@ export default function Dashboard() {
       const complaintsPayload = await complaintsRes.json()
       const interactionsPayload = await interactionsRes.json()
       const insightsPayload = await insightsRes.json()
+      const workflowMetricsPayload = await workflowMetricsRes.json()
+      const workflowsPayload = await workflowsRes.json()
       const clientsData = clientsPayload.success ? clientsPayload.data ?? [] : []
       const followUpsData = followUpsPayload.success ? followUpsPayload.data ?? [] : []
       const complaintsData = complaintsPayload.success ? complaintsPayload.data ?? [] : []
@@ -237,6 +252,7 @@ export default function Dashboard() {
       setComplaints(complaintsData)
       setInteractions(interactionsData)
       setInsights(insightsData)
+      setWorkflows(workflowsPayload.success ? workflowsPayload.data ?? [] : [])
       setStats({
         totalClients: clientsData.length,
         healthyClients: clientsData.filter((client: any) => client.healthStatus === 'GREEN').length,
@@ -244,6 +260,18 @@ export default function Dashboard() {
         pendingFollowUps: pendingFollowUpsPayload.success ? (pendingFollowUpsPayload.data?.length ?? 0) : 0,
         openComplaints: complaintsPayload.success ? (complaintsPayload.stats?.openComplaints ?? 0) : 0,
       })
+      setWorkflowMetrics(
+        workflowMetricsPayload.success
+          ? workflowMetricsPayload.data
+          : {
+              inquiryToPaymentConversion: 0,
+              averageInquiryToPaidHours: 0,
+              averageConceptApprovalHours: 0,
+              onTimeDeliveryRate: 0,
+              followupRate: 0,
+              complaintRateAfterDelivery: 0,
+            }
+      )
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
       setClients([])
@@ -251,12 +279,21 @@ export default function Dashboard() {
       setComplaints([])
       setInteractions([])
       setInsights([])
+      setWorkflows([])
       setStats({
         totalClients: 0,
         healthyClients: 0,
         atRiskClients: 0,
         pendingFollowUps: 0,
         openComplaints: 0,
+      })
+      setWorkflowMetrics({
+        inquiryToPaymentConversion: 0,
+        averageInquiryToPaidHours: 0,
+        averageConceptApprovalHours: 0,
+        onTimeDeliveryRate: 0,
+        followupRate: 0,
+        complaintRateAfterDelivery: 0,
       })
     } finally {
       setLoading(false)
@@ -439,6 +476,83 @@ export default function Dashboard() {
     }
   }
 
+  const workflowStages = [
+    'INQUIRY',
+    'OPTIONS_SENT',
+    'BRIEF_PENDING',
+    'BRIEF_LOCKED',
+    'PAYMENT_PENDING',
+    'PAID',
+    'CONCEPTS_SENT',
+    'CONCEPT_APPROVED',
+    'PRODUCTION',
+    'READY_TO_DELIVER',
+    'DELIVERED',
+    'FOLLOWUP_SENT',
+  ]
+
+  const requiresManualApproval = (nextStage: string) =>
+    ['PAYMENT_PENDING', 'PAID', 'DELIVERED'].includes(nextStage)
+
+  const handleWorkflowTransition = async (workflowId: string, toStage: string) => {
+    setActionError('')
+    setWorkflowActionMessage('')
+
+    if (!toStage) {
+      setActionError('Please select a target stage')
+      return
+    }
+
+    if (requiresManualApproval(toStage)) {
+      setWorkflowActionMessage(`Manual approval gate: confirm pricing/refund/conflict checks before moving to ${toStage}.`)
+    }
+
+    const response = await fetch('/api/workflow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'transition',
+        workflowId,
+        toStage,
+        actor: 'HUMAN',
+        details: `Manual transition from dashboard to ${toStage}`,
+        autoMessage: true,
+      }),
+    })
+
+    const payload = await response.json()
+    if (!response.ok || !payload.success) {
+      setActionError(payload.error || 'Failed to transition workflow')
+      return
+    }
+
+    await fetchDashboardData()
+    setWorkflowActionMessage(`Workflow moved to ${toStage} successfully.`)
+  }
+
+  const handleWorkflowPaymentConfirm = async (workflowId: string) => {
+    setActionError('')
+    setWorkflowActionMessage('Manual approval gate: confirm payment reference before finalizing.')
+    const paymentReference = `manual-${Date.now()}`
+    const response = await fetch('/api/workflow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'confirm-payment',
+        workflowId,
+        paymentReference,
+        autoMessage: true,
+      }),
+    })
+    const payload = await response.json()
+    if (!response.ok || !payload.success) {
+      setActionError(payload.error || 'Failed to confirm payment')
+      return
+    }
+    await fetchDashboardData()
+    setWorkflowActionMessage('Payment confirmed and client timeline message sent.')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       {/* Header */}
@@ -535,17 +649,54 @@ export default function Dashboard() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 lg:w-auto">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 lg:w-auto">
           <TabsTrigger value="overview">📊 Overview</TabsTrigger>
           <TabsTrigger value="clients">👥 Clients</TabsTrigger>
           <TabsTrigger value="followups">🔁 Follow-Ups</TabsTrigger>
           <TabsTrigger value="complaints">📂 Complaints</TabsTrigger>
           <TabsTrigger value="ai-insights">🧠 AI Insights</TabsTrigger>
+          <TabsTrigger value="workflows">🤖 Workflows</TabsTrigger>
           <TabsTrigger value="interactions">📞 Interactions</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Workflow Performance (30 days)</CardTitle>
+              <CardDescription>
+                Conversion, cycle-time, delivery reliability, and retention health across your WhatsApp service flow.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="rounded-lg border bg-white p-4">
+                  <p className="text-xs text-slate-500">Inquiry → Payment Conversion</p>
+                  <p className="text-2xl font-semibold text-slate-900">{workflowMetrics.inquiryToPaymentConversion}%</p>
+                </div>
+                <div className="rounded-lg border bg-white p-4">
+                  <p className="text-xs text-slate-500">Avg Inquiry → Paid Time</p>
+                  <p className="text-2xl font-semibold text-slate-900">{workflowMetrics.averageInquiryToPaidHours}h</p>
+                </div>
+                <div className="rounded-lg border bg-white p-4">
+                  <p className="text-xs text-slate-500">Avg Concept Approval Time</p>
+                  <p className="text-2xl font-semibold text-slate-900">{workflowMetrics.averageConceptApprovalHours}h</p>
+                </div>
+                <div className="rounded-lg border bg-white p-4">
+                  <p className="text-xs text-slate-500">On-Time Delivery Rate</p>
+                  <p className="text-2xl font-semibold text-slate-900">{workflowMetrics.onTimeDeliveryRate}%</p>
+                </div>
+                <div className="rounded-lg border bg-white p-4">
+                  <p className="text-xs text-slate-500">Post-Delivery Follow-Up Rate</p>
+                  <p className="text-2xl font-semibold text-slate-900">{workflowMetrics.followupRate}%</p>
+                </div>
+                <div className="rounded-lg border bg-white p-4">
+                  <p className="text-xs text-slate-500">Complaint Rate After Delivery</p>
+                  <p className="text-2xl font-semibold text-slate-900">{workflowMetrics.complaintRateAfterDelivery}%</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Client Health Dashboard */}
             <Card className="lg:col-span-2">
@@ -979,6 +1130,72 @@ export default function Dashboard() {
                   </Button>
                 </div>
               ) : null}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="workflows">
+          <Card>
+            <CardHeader>
+              <CardTitle>Workflow Operations</CardTitle>
+              <CardDescription>
+                Human-in-the-loop control for stage transitions, payment approvals, and sensitive workflow milestones.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {actionError ? <p className="text-sm text-red-600 mb-3">{actionError}</p> : null}
+              {workflowActionMessage ? <p className="text-sm text-blue-700 mb-3">{workflowActionMessage}</p> : null}
+
+              {workflows.length === 0 ? (
+                <div className="text-center py-12">
+                  <Zap className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-600">No active workflows yet.</p>
+                  <p className="text-sm text-slate-500 mt-2">Workflows are created automatically from WhatsApp activity.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {workflows.map((workflow: any) => (
+                    <div key={workflow.id} className="rounded-lg border p-4 bg-white">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-semibold text-slate-900">{workflow.client?.name || 'Unknown Client'}</p>
+                        <span className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700">{workflow.stage}</span>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-1">Owner: {workflow.stageOwner} | Updated: {formatDateTime(workflow.stageUpdatedAt)}</p>
+                      <p className="text-xs text-slate-500 mt-1">Next action due: {formatDateTime(workflow.nextActionDueAt)}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <select
+                          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                          value={workflowStageSelection[workflow.id] ?? ''}
+                          onChange={(event) =>
+                            setWorkflowStageSelection((prev) => ({ ...prev, [workflow.id]: event.target.value }))
+                          }
+                        >
+                          <option value="">Select next stage</option>
+                          {workflowStages.map((stage) => (
+                            <option key={`${workflow.id}-${stage}`} value={stage}>
+                              {stage}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleWorkflowTransition(workflow.id, workflowStageSelection[workflow.id] ?? '')}
+                        >
+                          Transition
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleWorkflowPaymentConfirm(workflow.id)}
+                          disabled={!['PAYMENT_PENDING', 'BRIEF_LOCKED'].includes(workflow.stage)}
+                        >
+                          Confirm Payment
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

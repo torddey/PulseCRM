@@ -27,10 +27,86 @@ model Client {
   complaints          Complaint[]
   followUps           FollowUp[]
   interactions        Interaction[]
+  workflows           ClientWorkflow[]
 
   @@index([healthStatus])
   @@index([lastInteractionDate])
   @@index([nextFollowUpDate])
+}
+
+model ClientWorkflow {
+  id                        String        @id @default(cuid())
+  clientId                  String
+  title                     String         @db.VarChar(255)
+  stage                     WorkflowStage  @default(INQUIRY)
+  stageOwner                WorkflowActor  @default(AGENT)
+  stageUpdatedAt            DateTime       @default(now())
+  inquiryAt                 DateTime?
+  optionsSentAt             DateTime?
+  briefPendingAt            DateTime?
+  briefLockedAt             DateTime?
+  paymentPendingAt          DateTime?
+  paidAt                    DateTime?
+  conceptsSentAt            DateTime?
+  conceptApprovedAt         DateTime?
+  productionStartedAt       DateTime?
+  midProductionUpdateAt     DateTime?
+  readyToDeliverAt          DateTime?
+  preDeliveryConfirmedAt    DateTime?
+  deliveredAt               DateTime?
+  followUpSentAt            DateTime?
+  briefUseCase              String?
+  briefStyleReferences      String?
+  briefPreferredColors      String?
+  briefDimensions           String?
+  briefDeadline             DateTime?
+  briefBudget               String?
+  briefDeliveryAddress      String?
+  briefSummary              String?
+  paymentReference          String?
+  conceptSelection          String?
+  productionProgress        Int            @default(0)
+  lastInboundAt             DateTime?
+  nextActionDueAt           DateTime?
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  client                    Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  events                    WorkflowEvent[]
+  messageLogs               WorkflowMessageLog[]
+
+  @@index([clientId])
+  @@index([stage])
+  @@index([nextActionDueAt])
+}
+
+model WorkflowEvent {
+  id             String            @id @default(cuid())
+  workflowId     String
+  eventType      WorkflowEventType
+  fromStage      WorkflowStage?
+  toStage        WorkflowStage?
+  actor          WorkflowActor     @default(AGENT)
+  details        String?
+  externalEventId String?          @unique
+  createdAt      DateTime          @default(now())
+  workflow       ClientWorkflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, createdAt])
+}
+
+model WorkflowMessageLog {
+  id             String         @id @default(cuid())
+  workflowId     String
+  direction      MessageDirection
+  channel        String         @default("WHATSAPP")
+  templateKey    String?
+  body           String
+  messageSid     String?
+  createdAt      DateTime       @default(now())
+  workflow       ClientWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId, createdAt])
+  @@index([messageSid])
 }
 
 /// *
@@ -260,4 +336,42 @@ enum InsightType {
   COMPLAINT_ALERT
   ENGAGEMENT_OPPORTUNITY
   CHURN_PREDICTION
+}
+
+enum WorkflowStage {
+  INQUIRY
+  OPTIONS_SENT
+  BRIEF_PENDING
+  BRIEF_LOCKED
+  PAYMENT_PENDING
+  PAID
+  CONCEPTS_SENT
+  CONCEPT_APPROVED
+  PRODUCTION
+  READY_TO_DELIVER
+  DELIVERED
+  FOLLOWUP_SENT
+}
+
+enum WorkflowActor {
+  AGENT
+  HUMAN
+  CLIENT
+  SYSTEM
+}
+
+enum WorkflowEventType {
+  INBOUND_MESSAGE
+  OUTBOUND_MESSAGE
+  STAGE_TRANSITION
+  PAYMENT_CONFIRMED
+  BRIEF_UPDATED
+  PRODUCTION_UPDATE
+  DELIVERY_CONFIRMED
+  FOLLOWUP_TRIGGERED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
 }

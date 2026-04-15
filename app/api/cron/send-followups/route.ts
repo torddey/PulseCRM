@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { sendFollowUpMessage } from '@/lib/whatsapp'
+import { applyWorkflowAutomation, transitionWorkflowStage } from '@/lib/workflow-agent'
 
 /**
  * GET /api/cron/send-followups
@@ -134,6 +135,143 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Workflow automation layer:
+    // 1) Mid-production check-ins
+    // 2) Pre-delivery confirmations
+    // 3) Retention nudges after delivery
+    const activeWorkflows = await prisma.clientWorkflow.findMany({
+      where: {
+        stage: {
+          in: ['PRODUCTION', 'READY_TO_DELIVER', 'DELIVERED'],
+        },
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+      },
+    })
+
+    for (const workflow of activeWorkflows) {
+      const now = new Date()
+
+      if (workflow.stage === 'PRODUCTION') {
+        const shouldSendMidProduction =
+          workflow.productionStartedAt &&
+          !workflow.midProductionUpdateAt &&
+          now.getTime() - workflow.productionStartedAt.getTime() >= 12 * 60 * 60 * 1000
+
+        if (shouldSendMidProduction && workflow.client.phone) {
+          const message = `Hi ${workflow.client.name}, quick update: production is progressing well. We will share final prep and delivery ETA shortly.`
+          const sendResult = await sendFollowUpMessage(
+            workflow.client.phone,
+            workflow.client.name,
+            'Mid-production update',
+            message
+          )
+
+          if (sendResult.success) {
+            await prisma.clientWorkflow.update({
+              where: { id: workflow.id },
+              data: {
+                midProductionUpdateAt: now,
+                productionProgress: 60,
+              },
+            })
+          }
+        }
+      }
+
+      if (workflow.stage === 'READY_TO_DELIVER') {
+        const shouldNotify =
+          !workflow.preDeliveryConfirmedAt &&
+          workflow.readyToDeliverAt &&
+          now.getTime() - workflow.readyToDeliverAt.getTime() >= 1 * 60 * 60 * 1000
+
+        if (shouldNotify && workflow.client.phone) {
+          await applyWorkflowAutomation({
+            workflowId: workflow.id,
+            clientName: workflow.client.name,
+            clientPhone: workflow.client.phone,
+          })
+          await prisma.clientWorkflow.update({
+            where: { id: workflow.id },
+            data: {
+              preDeliveryConfirmedAt: now,
+            },
+          })
+        }
+      }
+
+      if (workflow.stage === 'DELIVERED' && workflow.deliveredAt) {
+        const shouldSendRetention =
+          !workflow.followUpSentAt &&
+          now.getTime() - workflow.deliveredAt.getTime() >= 24 * 60 * 60 * 1000
+
+        if (shouldSendRetention) {
+          await transitionWorkflowStage({
+            workflowId: workflow.id,
+            toStage: 'FOLLOWUP_SENT',
+            actor: 'SYSTEM',
+            details: 'Automated retention follow-up triggered 24h after delivery.',
+            eventType: 'FOLLOWUP_TRIGGERED',
+          })
+
+          await applyWorkflowAutomation({
+            workflowId: workflow.id,
+            clientName: workflow.client.name,
+            clientPhone: workflow.client.phone,
+          })
+        }
+      }
+    }
+
+    // Complaint auto-escalation if unresolved for >24h after creation.
+    const staleComplaints = await prisma.complaint.findMany({
+      where: {
+        status: {
+          in: ['PENDING', 'IN_PROGRESS'],
+        },
+        createdAt: {
+          lte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
+      include: {
+        client: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    for (const complaint of staleComplaints) {
+      await prisma.complaint.update({
+        where: { id: complaint.id },
+        data: {
+          status: 'URGENT',
+          priority: complaint.priority === 'CRITICAL' ? 'CRITICAL' : 'HIGH',
+          reminderCount: complaint.reminderCount + 1,
+          lastReminderSent: new Date(),
+        },
+      })
+
+      await prisma.aIInsight.create({
+        data: {
+          clientId: complaint.clientId,
+          type: 'COMPLAINT_ALERT',
+          title: `Escalated complaint: ${complaint.title}`,
+          description: `Complaint remains unresolved after 24h for ${complaint.client.name}.`,
+          suggestedAction: 'Manual review required before sending any refund/apology language.',
+          confidence: 92,
+        },
+      })
+    }
+
     console.log(
       `Cron job completed: ${successCount} sent, ${failureCount} failed`
     )
@@ -146,6 +284,8 @@ export async function GET(request: NextRequest) {
         followUpsSent: successCount,
         followUpsFailed: failureCount,
         totalProcessed: dueFollowUps.length,
+        workflowAutomationsProcessed: activeWorkflows.length,
+        escalatedComplaints: staleComplaints.length,
         errors: errors.length > 0 ? errors : undefined,
       },
       { status: 200 }

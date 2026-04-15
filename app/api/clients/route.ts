@@ -47,6 +47,18 @@ export async function GET(request: NextRequest) {
         followUps: {
           select: { id: true, status: true },
         },
+        workflows: {
+          select: {
+            id: true,
+            stage: true,
+            stageUpdatedAt: true,
+            nextActionDueAt: true,
+          },
+          orderBy: {
+            updatedAt: 'desc',
+          },
+          take: 1,
+        },
       },
       take: limit,
       skip: offset,
@@ -64,9 +76,13 @@ export async function GET(request: NextRequest) {
       interactionCount: client.interactions.length,
       openComplaints: client.complaints.filter((c) => c.status !== 'RESOLVED').length,
       pendingFollowUps: client.followUps.filter((f) => f.status === 'PENDING').length,
+      activeWorkflowStage: client.workflows[0]?.stage ?? null,
+      workflowUpdatedAt: client.workflows[0]?.stageUpdatedAt ?? null,
+      workflowNextActionDueAt: client.workflows[0]?.nextActionDueAt ?? null,
       interactions: undefined,
       complaints: undefined,
       followUps: undefined,
+      workflows: undefined,
     }))
 
     return NextResponse.json({

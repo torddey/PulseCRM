@@ -12,6 +12,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { analyzeClientMessage } from '@/lib/ai-insights'
+import {
+  applyWorkflowAutomation,
+  getOrCreateClientWorkflow,
+  inferNextStageFromMessage,
+  transitionWorkflowStage,
+} from '@/lib/workflow-agent'
 
 /**
  * GET handler - Fetch interactions
@@ -208,6 +214,25 @@ export async function POST(request: NextRequest) {
           confidence: 80,
         },
       })
+    }
+
+    if (type === 'WHATSAPP') {
+      const workflow = await getOrCreateClientWorkflow(clientId, `${client.name} Service Workflow`)
+      const inferredStage = inferNextStageFromMessage(workflow.stage, content)
+      if (inferredStage && inferredStage !== workflow.stage) {
+        const updatedWorkflow = await transitionWorkflowStage({
+          workflowId: workflow.id,
+          toStage: inferredStage,
+          actor: 'HUMAN',
+          details: 'Stage inferred from manually logged WhatsApp interaction.',
+        })
+
+        await applyWorkflowAutomation({
+          workflowId: updatedWorkflow.id,
+          clientName: client.name,
+          clientPhone: client.phone,
+        })
+      }
     }
 
     return NextResponse.json(
